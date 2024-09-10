@@ -470,11 +470,25 @@ class CourseController extends Controller
             return response()->json(['error' => 'Пользователь не аутентифицирован'], 401);
         }
 
+        // Получаем user_id из запроса, если он не передан, то берем id аутентифицированного пользователя
         $userId = $request->query('user_id', $user->id);
 
-        $hasAccess = CourseAccess::where('course_id', $courseId)
-            ->where('user_id', $userId)
-            ->exists();
+        // Проверяем роль пользователя
+        $requestedUser = User::find($userId);
+
+        if (!$requestedUser) {
+            return response()->json(['error' => 'Пользователь не найден'], 404);
+        }
+
+        // Если пользователь является администратором (role_id == 1), доступ разрешен
+        if ($requestedUser->role_id == 1) {
+            $hasAccess = true;
+        } else {
+            // Иначе проверяем, является ли пользователь создателем курса через CourseAccess
+            $hasAccess = CourseAccess::where('course_id', $courseId)
+                ->where('user_id', $userId)
+                ->exists();
+        }
 
         if (!$hasAccess) {
             return response()->json(['error' => 'У вас нет доступа к этому курсу'], 403);
@@ -542,7 +556,6 @@ class CourseController extends Controller
 
         return response()->json($courseDetails, 200);
     }
-
 
     public function update(Request $request, $courseId): JsonResponse
     {
