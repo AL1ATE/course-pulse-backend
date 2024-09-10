@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Text;
 use App\Models\Title;
 use App\Models\TitleFile;
 use App\Models\TitleLink;
@@ -36,9 +37,10 @@ class CourseController extends Controller
             'sections.*.chapters.*.title' => 'required|string|max:255',
             'sections.*.chapters.*.subChapters' => 'required|array|min:1',
             'sections.*.chapters.*.subChapters.*.title' => 'required|string|max:255',
-            'sections.*.chapters.*.subChapters.*.text' => 'required|string',
-            'sections.*.chapters.*.subChapters.*.images' => 'nullable|array',
-            'sections.*.chapters.*.subChapters.*.images.*' => 'nullable|url',
+            'sections.*.chapters.*.subChapters.*.texts' => 'required|array|min:1',
+            'sections.*.chapters.*.subChapters.*.texts.*.content' => 'required|string',
+            'sections.*.chapters.*.subChapters.*.texts.*.images' => 'nullable|array',
+            'sections.*.chapters.*.subChapters.*.texts.*.images.*' => 'nullable|url',
             'sections.*.chapters.*.subChapters.*.files' => 'nullable|array',
             'sections.*.chapters.*.subChapters.*.files.*.name' => 'nullable|string|max:255',
             'sections.*.chapters.*.subChapters.*.files.*.url' => 'nullable|url',
@@ -84,39 +86,47 @@ class CourseController extends Controller
                         $subChapter = Title::create([
                             'chapter_id' => $chapter->id,
                             'subtitle' => $subChapterData['title'],
-                            'text' => $subChapterData['text'],
                         ]);
 
-                        if (isset($subChapterData['images'])) {
-                            foreach ($subChapterData['images'] as $imageUrl) {
-                                if ($imageUrl) {
-                                    TitlePhoto::create([
-                                        'title_id' => $subChapter->id,
-                                        'photo_url' => $imageUrl,
-                                    ]);
-                                }
-                            }
-                        }
+                        if (isset($subChapterData['texts'])) {
+                            foreach ($subChapterData['texts'] as $textData) {
+                                $text = Text::create([
+                                    'title_id' => $subChapter->id,
+                                    'content' => $textData['content'],
+                                ]);
 
-                        if (isset($subChapterData['files'])) {
-                            foreach ($subChapterData['files'] as $file) {
-                                if (isset($file['name']) && isset($file['url'])) {
-                                    TitleFile::create([
-                                        'title_id' => $subChapter->id,
-                                        'file_name' => $file['name'],
-                                        'file_url' => $file['url'],
-                                    ]);
+                                if (isset($textData['images'])) {
+                                    foreach ($textData['images'] as $imageUrl) {
+                                        if ($imageUrl) {
+                                            TitlePhoto::create([
+                                                'title_text_id' => $text->id, // Используем правильное поле title_text_id
+                                                'photo_url' => $imageUrl,
+                                            ]);
+                                        }
+                                    }
                                 }
-                            }
-                        }
 
-                        if (isset($subChapterData['links'])) {
-                            foreach ($subChapterData['links'] as $linkUrl) {
-                                if ($linkUrl) {
-                                    TitleLink::create([
-                                        'title_id' => $subChapter->id,
-                                        'link_url' => $linkUrl,
-                                    ]);
+                                if (isset($textData['files'])) {
+                                    foreach ($textData['files'] as $file) {
+                                        if (isset($file['name']) && isset($file['url'])) {
+                                            TitleFile::create([
+                                                'text_id' => $text->id,
+                                                'file_name' => $file['name'],
+                                                'file_url' => $file['url'],
+                                            ]);
+                                        }
+                                    }
+                                }
+
+                                if (isset($textData['links'])) {
+                                    foreach ($textData['links'] as $linkUrl) {
+                                        if ($linkUrl) {
+                                            TitleLink::create([
+                                                'text_id' => $text->id,
+                                                'link_url' => $linkUrl,
+                                            ]);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -388,7 +398,10 @@ class CourseController extends Controller
             ->with(['chapters' => function ($query) use ($chapterId) {
                 $query->where('id', $chapterId)
                     ->with(['titles' => function ($query) {
-                        $query->with(['photos', 'files', 'links']);
+                        // Включаем тексты и фотографии, связанные с ними
+                        $query->with(['texts' => function ($textQuery) {
+                            $textQuery->with(['photos']);
+                        }, 'files', 'links']);
                     }]);
             }])
             ->first();
@@ -410,11 +423,16 @@ class CourseController extends Controller
                 return [
                     'id' => $title->id,
                     'subtitle' => $title->subtitle,
-                    'text' => $title->text,
-                    'photos' => $title->photos->map(function ($photo) {
+                    'texts' => $title->texts->map(function ($text) {
                         return [
-                            'id' => $photo->id,
-                            'photo_url' => $photo->photo_url,
+                            'id' => $text->id,
+                            'content' => $text->content,
+                            'photos' => $text->photos->map(function ($photo) {
+                                return [
+                                    'id' => $photo->id,
+                                    'photo_url' => $photo->photo_url,
+                                ];
+                            }),
                         ];
                     }),
                     'files' => $title->files->map(function ($file) {
@@ -462,7 +480,8 @@ class CourseController extends Controller
             return response()->json(['error' => 'У вас нет доступа к этому курсу'], 403);
         }
 
-        $course = Course::with(['sections.chapters.titles.photos', 'sections.chapters.titles.files', 'sections.chapters.titles.links'])
+        // Загружаем курс вместе с секциями, главами, текстами и фотографиями
+        $course = Course::with(['sections.chapters.titles.texts.photos', 'sections.chapters.titles.files', 'sections.chapters.titles.links'])
             ->find($courseId);
 
         if (!$course) {
@@ -486,11 +505,16 @@ class CourseController extends Controller
                             'subChapters' => $chapter->titles->map(function ($title) {
                                 return [
                                     'title' => $title->subtitle,
-                                    'text' => $title->text,
-                                    'images' => $title->photos->map(function ($photo) {
+                                    'texts' => $title->texts->map(function ($text) {
                                         return [
-                                            'id' => $photo->id,
-                                            'photo_url' => $photo->photo_url,
+                                            'id' => $text->id,
+                                            'content' => $text->content,
+                                            'images' => $text->photos->map(function ($photo) {
+                                                return [
+                                                    'id' => $photo->id,
+                                                    'photo_url' => $photo->photo_url,
+                                                ];
+                                            }),
                                         ];
                                     }),
                                     'files' => $title->files->map(function ($file) {
