@@ -7,12 +7,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class TitlePhoto extends Model
 {
     protected $fillable = [
-        'title_id',
+        'title_text_id', // Изменяем с 'title_id' на 'title_text_id'
         'photo_url'
     ];
 
-    public function title(): BelongsTo
+    public function text(): BelongsTo
     {
-        return $this->belongsTo(Title::class);
+        return $this->belongsTo(Text::class, 'title_text_id'); // Изменяем связь с Title на Text
     }
 }

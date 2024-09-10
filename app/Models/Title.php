@@ -18,9 +18,9 @@ class Title extends Model
         return $this->belongsTo(Chapter::class);
     }
 
-    public function photos(): HasMany
+    public function texts()
     {
-        return $this->hasMany(TitlePhoto::class);
+        return $this->hasMany(Text::class, 'title_id');
     }
 
     public function files(): HasMany
