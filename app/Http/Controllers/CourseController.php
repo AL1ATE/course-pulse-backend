@@ -511,7 +511,7 @@ class CourseController extends Controller
                 return [
                     'id' => $section->id,
                     'name' => $section->name,
-                    'photo_url' => $section->photo_url,
+                    'coverImage' => $section->photo_url,
                     'chapters' => $section->chapters->map(function ($chapter) {
                         return [
                             'id' => $chapter->id,
@@ -524,24 +524,8 @@ class CourseController extends Controller
                                             'id' => $text->id,
                                             'content' => $text->content,
                                             'images' => $text->photos->map(function ($photo) {
-                                                return [
-                                                    'id' => $photo->id,
-                                                    'photo_url' => $photo->photo_url,
-                                                ];
-                                            }),
-                                        ];
-                                    }),
-                                    'files' => $title->files->map(function ($file) {
-                                        return [
-                                            'id' => $file->id,
-                                            'file_name' => $file->file_name,
-                                            'file_url' => $file->file_url,
-                                        ];
-                                    }),
-                                    'links' => $title->links->map(function ($link) {
-                                        return [
-                                            'id' => $link->id,
-                                            'link_url' => $link->link_url,
+                                                return $photo->photo_url;
+                                            })->toArray(),
                                         ];
                                     }),
                                 ];
@@ -566,19 +550,15 @@ class CourseController extends Controller
             'description' => 'required|string',
             'sections' => 'required|array|min:1',
             'sections.*.name' => 'required|string|max:255',
-            'sections.*.photo_url' => 'nullable|url',
+            'sections.*.coverImage' => 'nullable|url',  // Обновляем валидацию
             'sections.*.chapters' => 'required|array|min:1',
             'sections.*.chapters.*.title' => 'required|string|max:255',
             'sections.*.chapters.*.subChapters' => 'required|array|min:1',
             'sections.*.chapters.*.subChapters.*.title' => 'required|string|max:255',
-            'sections.*.chapters.*.subChapters.*.text' => 'required|string',
-            'sections.*.chapters.*.subChapters.*.images' => 'nullable|array',
-            'sections.*.chapters.*.subChapters.*.images.*' => 'nullable|url',
-            'sections.*.chapters.*.subChapters.*.files' => 'nullable|array',
-            'sections.*.chapters.*.subChapters.*.files.*.name' => 'nullable|string|max:255',
-            'sections.*.chapters.*.subChapters.*.files.*.url' => 'nullable|url',
-            'sections.*.chapters.*.subChapters.*.links' => 'nullable|array',
-            'sections.*.chapters.*.subChapters.*.links.*.link_url' => 'nullable|url',
+            'sections.*.chapters.*.subChapters.*.texts' => 'required|array|min:1',
+            'sections.*.chapters.*.subChapters.*.texts.*.content' => 'required|string',
+            'sections.*.chapters.*.subChapters.*.texts.*.images' => 'nullable|array',
+            'sections.*.chapters.*.subChapters.*.texts.*.images.*' => 'nullable|url',
             'creator_id' => 'required|integer',
             'cover_image_url' => 'nullable|url'
         ]);
@@ -615,7 +595,7 @@ class CourseController extends Controller
                 $section = Section::create([
                     'course_id' => $course->id,
                     'name' => $sectionData['name'],
-                    'photo_url' => $sectionData['photo_url'] ?? null,
+                    'photo_url' => $sectionData['coverImage'] ?? null,  // Заменяем coverImage на photo_url
                 ]);
 
                 foreach ($sectionData['chapters'] as $chapterData) {
@@ -628,39 +608,22 @@ class CourseController extends Controller
                         $subChapter = Title::create([
                             'chapter_id' => $chapter->id,
                             'subtitle' => $subChapterData['title'],
-                            'text' => $subChapterData['text'],
                         ]);
 
-                        if (isset($subChapterData['images'])) {
-                            foreach ($subChapterData['images'] as $imageUrl) {
-                                if ($imageUrl) {
-                                    TitlePhoto::create([
-                                        'title_id' => $subChapter->id,
-                                        'photo_url' => $imageUrl,
-                                    ]);
-                                }
-                            }
-                        }
+                        foreach ($subChapterData['texts'] as $textData) {
+                            $text = Text::create([
+                                'title_id' => $subChapter->id,
+                                'content' => $textData['content'],
+                            ]);
 
-                        if (isset($subChapterData['files'])) {
-                            foreach ($subChapterData['files'] as $file) {
-                                if (isset($file['name']) && isset($file['url'])) {
-                                    TitleFile::create([
-                                        'title_id' => $subChapter->id,
-                                        'file_name' => $file['name'],
-                                        'file_url' => $file['url'],
-                                    ]);
-                                }
-                            }
-                        }
-
-                        if (isset($subChapterData['links'])) {
-                            foreach ($subChapterData['links'] as $linkData) {
-                                if (isset($linkData['link_url'])) {
-                                    TitleLink::create([
-                                        'title_id' => $subChapter->id,
-                                        'link_url' => $linkData['link_url'],
-                                    ]);
+                            if ($text->id && isset($textData['images'])) {
+                                foreach ($textData['images'] as $imageUrl) {
+                                    if ($imageUrl) {
+                                        TitlePhoto::create([
+                                            'title_text_id' => $text->id,
+                                            'photo_url' => $imageUrl,
+                                        ]);
+                                    }
                                 }
                             }
                         }
@@ -691,6 +654,7 @@ class CourseController extends Controller
             return response()->json(['error' => 'Произошла ошибка: ' . $e->getMessage()], 500);
         }
     }
+
 
     public function getCoursesForReview()
     {
