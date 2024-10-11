@@ -8,7 +8,7 @@
 </head>
 <body style="font-family: 'Open Sans', sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; text-align: center;">
 <div style="background: #181818; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); width: 100%; margin: auto; color: white;">
-    <img src="{{ asset('images/logo.png') }}" alt="Логотип" style="margin-bottom: 20px; width: 150px;">
+    <img src="{{ asset('images/logo.png') }}" alt="Логотип" style="margin-bottom: 20px; width: 350px;">
     <h1 style="font-size: 32px; margin-bottom: 10px;">Ваш код для сброса пароля</h1>
 
     <p style="margin: 10px 0; font-size: 20px;">Код: <span style="font-weight: bold; font-size: 24px; color: #ff4860;">{{ $code }}</span></p>
