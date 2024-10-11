@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Mail\VerificationCodeMail;
 use Illuminate\Http\Request;
-use App\Models\User; // Не забудьте импортировать модель User
+use App\Models\User;
 
 class ForgotPasswordController extends Controller
 {
@@ -17,15 +17,30 @@ class ForgotPasswordController extends Controller
         // Валидация входных данных
         $request->validate(['email' => 'required|email']);
 
-        // Генерация кода
+        // Генерация нового кода
         $token = Str::random(6);
 
-        // Сохранение кода и email в базу данных
-        DB::table('password_reset_tokens')->insert([
-            'email' => $request->email,
-            'token' => $token,
-            'created_at' => now(),
-        ]);
+        // Проверка, есть ли запись для данного email
+        $existingToken = DB::table('password_reset_tokens')
+            ->where('email', $request->email)
+            ->first();
+
+        if ($existingToken) {
+            // Обновление кода, если запись уже существует
+            DB::table('password_reset_tokens')
+                ->where('email', $request->email)
+                ->update([
+                    'token' => $token,
+                    'created_at' => now(),
+                ]);
+        } else {
+            // Создание новой записи, если email отсутствует в базе
+            DB::table('password_reset_tokens')->insert([
+                'email' => $request->email,
+                'token' => $token,
+                'created_at' => now(),
+            ]);
+        }
 
         // Логируем информацию о коде и email
         Log::info('Сохранен код сброса пароля в базе данных', [
