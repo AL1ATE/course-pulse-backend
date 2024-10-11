@@ -17,10 +17,17 @@ class ForgotPasswordController extends Controller
         // Валидация входных данных
         $request->validate(['email' => 'required|email']);
 
+        // Проверка, существует ли пользователь с данным email
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'Пользователь с таким адресом электронной почты не зарегистрирован'], 404);
+        }
+
         // Генерация нового кода
         $token = Str::random(6);
 
-        // Проверка, есть ли запись для данного email
+        // Проверка, есть ли запись для данного email в таблице password_reset_tokens
         $existingToken = DB::table('password_reset_tokens')
             ->where('email', $request->email)
             ->first();
