@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\FileUploadController;
@@ -38,8 +39,9 @@ Route::get('/users', [UserController::class, 'get']);
 Route::delete('users/delete/{id}', [UserController::class, 'delete']);
 Route::put('/users/update/{id}', [UserController::class, 'update']);
 Route::post('refresh-token', [AuthController::class, 'refreshToken']);
-Route::post('send-verification-code', [AuthController::class, 'sendVerificationCode']);
-Route::post('verify-code', [AuthController::class, 'verifyCode']);
+Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetCode']);
+Route::post('/reset-password', [ForgotPasswordController::class, 'resetPassword']);
+Route::post('/verify-token', [ForgotPasswordController::class, 'verifyToken']);
 Route::put('/profile/update/{id}', [ProfileController::class, 'updateUser']);
 Route::post('/upload', [FileUploadController::class, 'upload']);
 Route::prefix('requests')->group(function () {
