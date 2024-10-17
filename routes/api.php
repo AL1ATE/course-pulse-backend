@@ -4,6 +4,7 @@ use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\FileUploadController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoleUpgradeRequestController;
 use App\Http\Controllers\UserController;
@@ -16,6 +17,7 @@ Route::get('/user', function (Request $request) {
 
 
 // ** Courses
+Route::get('/courses', [HomeController::class, 'getCoursesForUsers']);
 Route::get('/courses/{courseId}', [CourseController::class, 'showCourseDetails']);
 Route::put('/courses/{id}/update-status', [CourseController::class, 'updateStatus']);
 Route::get('/course/{courseId}/section/{sectionId}', [CourseController::class, 'showSectionChapters']);

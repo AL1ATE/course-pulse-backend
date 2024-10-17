@@ -15,7 +15,7 @@ class User extends Authenticatable implements JWTSubject
         'username',
         'email',
         'password',
-        'role_id',  // Добавляем role_id в fillable, если его еще нет
+        'role_id',
     ];
 
     protected $hidden = [
@@ -40,7 +40,11 @@ class User extends Authenticatable implements JWTSubject
         ];
     }
 
-    // Определяем отношение с моделью Role
+    public function profile()
+    {
+        return $this->hasOne(Profile::class, 'user_id');
+    }
+
     public function role()
     {
         return $this->belongsTo(Role::class);
