@@ -3,7 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Course;
+use App\Models\CourseAccess;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class HomeController extends Controller
 {
@@ -27,8 +31,10 @@ class HomeController extends Controller
         return response()->json($courses);
     }
 
-    public function getCourseDetails($id): JsonResponse
+    public function getCourseDetails($id, Request $request): JsonResponse
     {
+        $userId = $request->input('user_id');
+
         $course = Course::with(['creator.profile'])
             ->where('id', $id)
             ->where('status', 1)
@@ -46,6 +52,50 @@ class HomeController extends Controller
             'participants_count' => $course->access()->where('user_id', '!=', $course->creator_id)->distinct()->count(),
         ];
 
+        if ($userId) {
+            $hasAccess = CourseAccess::where('user_id', $userId)
+                ->where('course_id', $course->id)
+                ->exists();
+
+            if ($hasAccess) {
+                $courseData['has_access'] = true;
+            } else {
+                $courseData['has_access'] = false;
+            }
+        }
+
         return response()->json($courseData);
+    }
+
+    public function freeCourseAccess(Request $request)
+    {
+        $validated = $request->validate([
+            'course_id' => 'required|integer',
+            'user_id' => 'required|integer'
+        ]);
+
+        $course = Course::find($validated['course_id']);
+        if (!$course) {
+            return response()->json(['error' => 'Курс не существует'], 404);
+        }
+
+        $user = User::find($validated['user_id']);
+        if (!$user) {
+            return response()->json(['error' => 'Пользователь не существует'], 404);
+        }
+
+        $accessEndDate = null;
+
+        CourseAccess::updateOrCreate(
+            [
+                'course_id' => $validated['course_id'],
+                'user_id' => $validated['user_id']
+            ],
+            [
+                'access_end_date' => $accessEndDate
+            ]
+        );
+
+        return response()->json(['message' => 'true'], 201);
     }
 }

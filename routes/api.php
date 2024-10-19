@@ -20,6 +20,7 @@ Route::get('/user', function (Request $request) {
 Route::get('/courses', [HomeController::class, 'getCoursesForHome']);
 Route::get('/info-course/{id}', [HomeController::class, 'getCourseDetails']);
 Route::get('/courses/{courseId}', [CourseController::class, 'showCourseDetails']);
+Route::post('/free-course-access', [HomeController::class, 'freeCourseAccess']);
 Route::put('/courses/{id}/update-status', [CourseController::class, 'updateStatus']);
 Route::get('/course/{courseId}/section/{sectionId}', [CourseController::class, 'showSectionChapters']);
 Route::get('/course/{courseId}/section/{sectionId}/chapter/{chapterId}', [CourseController::class, 'showChapterDetails']);
