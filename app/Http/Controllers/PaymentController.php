@@ -48,9 +48,10 @@ class PaymentController extends Controller
         $secretKey = config('services.freekassa.secret_key');
         $amount = $transaction->amount;
         $orderId = $transaction->id;
+        $currency = 'RUB'; // Устанавливаем валюту, можно изменить, если потребуется
 
-        // Установите валюту на основе выбранного метода
-        $currency = $paymentMethod; // Здесь используйте вашу логику для определения валюты
+        // Код способа оплаты для FreeKassa
+        $paymentMethodCode = $this->getPaymentMethodCode($paymentMethod);
 
         // Хэшируем данные для подписи
         $sign = md5($merchantId . ':' . $amount . ':' . $secretKey . ':' . $currency . ':' . $orderId);
@@ -62,10 +63,24 @@ class PaymentController extends Controller
                 'o' => $orderId,
                 's' => $sign,
                 'currency' => $currency,
+                'i' => $paymentMethodCode, // передаем код способа оплаты
                 'lang' => 'ru',
             ]);
 
         return $paymentUrl;
+    }
+
+    private function getPaymentMethodCode($paymentMethod)
+    {
+        // Соответствие способов оплаты кодам FreeKassa
+        $paymentMethods = [
+            'sbp' => 42,     // СБП
+            'iomoney' => 6,  // IOMoney
+            'mir' => 12,     // Карта Мир
+        ];
+
+        // Возвращаем код, если он существует, иначе null
+        return $paymentMethods[$paymentMethod] ?? null;
     }
 
     // Обработка колбэка после оплаты
