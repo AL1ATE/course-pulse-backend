@@ -7,12 +7,16 @@ use App\Models\Transaction;
 use App\Models\UserBalance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
     public function initiatePayment(Request $request, $courseId)
     {
+        $request->validate([
+            'payment_method' => 'required|string', // валидируем способ оплаты
+        ]);
+
         // Найти курс по его ID
         $course = Course::findOrFail($courseId);
 
@@ -27,14 +31,17 @@ class PaymentController extends Controller
             'status' => 'pending',
         ]);
 
-        // Формируем параметры для отправки в FreeKassa
-        $paymentUrl = $this->generateFreeKassaUrl($transaction);
+        // Получаем выбранный способ оплаты
+        $paymentMethod = $request->input('payment_method');
 
-        // Перенаправляем пользователя на оплату
-        return redirect($paymentUrl);
+        // Формируем параметры для отправки в FreeKassa
+        $paymentUrl = $this->generateFreeKassaUrl($transaction, $paymentMethod);
+
+        // Возвращаем URL для редиректа
+        return response()->json(['payment_url' => $paymentUrl]);
     }
 
-    private function generateFreeKassaUrl(Transaction $transaction)
+    private function generateFreeKassaUrl(Transaction $transaction, $paymentMethod)
     {
         // Параметры FreeKassa
         $merchantId = config('services.freekassa.merchant_id');
@@ -42,16 +49,20 @@ class PaymentController extends Controller
         $amount = $transaction->amount;
         $orderId = $transaction->id;
 
-        // Хэшируем данные
-        $sign = md5($merchantId . ':' . $amount . ':' . $secretKey . ':' . $orderId);
+        // Установите валюту на основе выбранного метода
+        $currency = $paymentMethod; // Здесь используйте вашу логику для определения валюты
 
-        // URL для редиректа
-        $paymentUrl = "https://www.free-kassa.ru/merchant/cash.php?" . http_build_query([
+        // Хэшируем данные для подписи
+        $sign = md5($merchantId . ':' . $amount . ':' . $secretKey . ':' . $currency . ':' . $orderId);
+
+        // URL для редиректа на страницу оплаты
+        $paymentUrl = "https://pay.freekassa.com/?" . http_build_query([
                 'm' => $merchantId,
                 'oa' => $amount,
                 'o' => $orderId,
                 's' => $sign,
-                'us_user_id' => $transaction->user_id
+                'currency' => $currency,
+                'lang' => 'ru',
             ]);
 
         return $paymentUrl;
@@ -60,6 +71,11 @@ class PaymentController extends Controller
     // Обработка колбэка после оплаты
     public function paymentCallback(Request $request)
     {
+        // Проверка IP-адреса
+        if (!$this->isValidIP()) {
+            die("Hacking attempt!");
+        }
+
         // Получаем данные от FreeKassa
         $transactionId = $request->input('MERCHANT_ORDER_ID');
         $amount = $request->input('AMOUNT');
@@ -88,5 +104,21 @@ class PaymentController extends Controller
         }
 
         return response()->json(['status' => 'error'], 400);
+    }
+
+    private function isValidIP()
+    {
+        $validIPs = [
+            '168.119.157.136',
+            '168.119.60.227',
+            '178.154.197.79',
+            '51.250.54.238'
+        ];
+        return in_array($this->getIP(), $validIPs);
+    }
+
+    private function getIP()
+    {
+        return request()->ip();
     }
 }

@@ -63,5 +63,5 @@ Route::prefix('requests')->group(function () {
 });
 
 // ** Payment
-Route::post('/payment/initiate/{courseId}', [PaymentController::class, 'initiatePayment'])->middleware('auth');
+Route::get('/payment/initiate/{courseId}', [PaymentController::class, 'initiatePayment']);
 Route::post('/payment/callback', [PaymentController::class, 'paymentCallback']);
