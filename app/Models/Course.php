@@ -31,11 +31,6 @@ class Course extends Model
         return $this->hasMany(TestSection::class);
     }
 
-    public function courseAccess(): HasMany
-    {
-        return $this->hasMany(CourseAccess::class);
-    }
-
     public function access()
     {
         return $this->hasMany(CourseAccess::class);

@@ -7,16 +7,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CourseAccess extends Model
 {
-    protected $table = 'course_access'; // Явно указываем имя таблицы
+    protected $table = 'course_access';
 
     protected $fillable = [
         'course_id',
         'user_id',
-        'access_end_date' // Добавлено новое поле
+        'access_end_date'
     ];
 
     protected $casts = [
-        'access_end_date' => 'datetime', // Преобразование даты в объект Carbon
+        'access_end_date' => 'datetime',
     ];
 
     public function course(): BelongsTo
