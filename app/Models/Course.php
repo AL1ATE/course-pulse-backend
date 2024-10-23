@@ -13,7 +13,8 @@ class Course extends Model
         'creator_id',
         'description',
         'status',
-        'cover_image_url'
+        'cover_image_url',
+        'price'
     ];
 
     public function creator(): BelongsTo
@@ -34,6 +35,11 @@ class Course extends Model
     public function access()
     {
         return $this->hasMany(CourseAccess::class);
+    }
+
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class);
     }
 }
 
