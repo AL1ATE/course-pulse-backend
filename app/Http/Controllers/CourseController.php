@@ -41,12 +41,14 @@ class CourseController extends Controller
             'sections.*.chapters.*.subChapters.*.texts.*.content' => 'required|string',
             'sections.*.chapters.*.subChapters.*.texts.*.images' => 'nullable|array',
             'sections.*.chapters.*.subChapters.*.texts.*.images.*' => 'nullable|url',
-            'sections.*.chapters.*.subChapters.*.files' => 'nullable|array',
-            'sections.*.chapters.*.subChapters.*.files.*.name' => 'nullable|string|max:255',
-            'sections.*.chapters.*.subChapters.*.files.*.url' => 'nullable|url',
-            'sections.*.chapters.*.subChapters.*.links' => 'nullable|array',
-            'sections.*.chapters.*.subChapters.*.links.*' => 'nullable|url',
-            'creator_id' => 'required|integer'
+            'sections.*.chapters.*.subChapters.*.texts.*.files' => 'nullable|array',
+            'sections.*.chapters.*.subChapters.*.texts.*.files.*.name' => 'nullable|string|max:255',
+            'sections.*.chapters.*.subChapters.*.texts.*.files.*.url' => 'nullable|url',
+            'sections.*.chapters.*.subChapters.*.texts.*.links' => 'nullable|array',
+            'sections.*.chapters.*.subChapters.*.texts.*.links.*' => 'nullable|url',
+            'creator_id' => 'required|integer',
+            'price' => 'nullable|numeric', // Добавлена валидация для price
+            'payment_telegram_link' => 'nullable|string|max:255' // Добавлена валидация для payment_telegram_link
         ]);
 
         \Log::info('Validated request data:', $validated);
@@ -61,12 +63,22 @@ class CourseController extends Controller
         DB::beginTransaction();
 
         try {
+            // Обработка price
+            $price = $validated['price'];
+            if (is_numeric($price)) {
+                $price = number_format($price, 2, '.', '');
+            } else {
+                $price = '0.00'; // Для пустого значения или null
+            }
+
             $course = Course::create([
                 'name' => $validated['name'],
                 'description' => $validated['description'],
                 'cover_image_url' => $validated['cover_image_url'] ?? null,
                 'creator_id' => $userId,
-                'status' => 2
+                'status' => 2,
+                'price' => $price, // Записываем обработанное значение price
+                'payment_telegram_link' => $validated['payment_telegram_link'] ?? null, // Записываем payment_telegram_link
             ]);
 
             foreach ($validated['sections'] as $sectionData) {
