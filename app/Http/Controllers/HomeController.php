@@ -48,6 +48,7 @@ class HomeController extends Controller
             'avatar_url' => $course->creator->profile ? $course->creator->profile->avatar_url : null,
             'cover_image_url' => $course->cover_image_url,
             'description' => $course->description,
+            'payment_telegram_link' => $course->payment_telegram_link,
             'price' => intval($course->price),
             'participants_count' => $course->access()->where('user_id', '!=', $course->creator_id)->distinct()->count(),
         ];

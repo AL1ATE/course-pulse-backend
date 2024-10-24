@@ -14,6 +14,7 @@ class Course extends Model
         'description',
         'status',
         'cover_image_url',
+        'payment_telegram_link',
         'price'
     ];
 
