@@ -18,6 +18,11 @@ return [
         'token' => env('POSTMARK_TOKEN'),
     ],
 
+    'freekassa' => [
+        'merchant_id' => env('FREEKASSA_MERCHANT_ID'),
+        'secret_key' => env('FREEKASSA_SECRET_KEY'),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

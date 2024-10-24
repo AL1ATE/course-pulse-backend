@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoleUpgradeRequestController;
 use App\Http\Controllers\UserController;
@@ -60,3 +61,7 @@ Route::prefix('requests')->group(function () {
     Route::post('{id}/reject', [RoleUpgradeRequestController::class, 'rejectRequest'])
         ->middleware('auth:api');
 });
+
+// ** Payment
+Route::get('/payment/initiate/{courseId}', [PaymentController::class, 'initiatePayment']);
+Route::post('/payment/callback', [PaymentController::class, 'paymentCallback']);
