@@ -459,32 +459,23 @@ class CourseController extends Controller
 
     public function showFullCourseDetails(Request $request, $courseId): JsonResponse
     {
-        \Log::info('Received request to show full course details:', [
-            'course_id' => $courseId,
-            'user_id' => $request->query('user_id')
-        ]);
-
         try {
             $user = JWTAuth::parseToken()->authenticate();
         } catch (\Tymon\JWTAuth\Exceptions\JWTException $e) {
             return response()->json(['error' => 'Пользователь не аутентифицирован'], 401);
         }
 
-        // Получаем user_id из запроса, если он не передан, то берем id аутентифицированного пользователя
         $userId = $request->query('user_id', $user->id);
 
-        // Проверяем роль пользователя
         $requestedUser = User::find($userId);
 
         if (!$requestedUser) {
             return response()->json(['error' => 'Пользователь не найден'], 404);
         }
 
-        // Если пользователь является администратором (role_id == 1), доступ разрешен
         if ($requestedUser->role_id == 1) {
             $hasAccess = true;
         } else {
-            // Иначе проверяем, является ли пользователь создателем курса через CourseAccess
             $hasAccess = CourseAccess::where('course_id', $courseId)
                 ->where('user_id', $userId)
                 ->exists();
@@ -494,7 +485,6 @@ class CourseController extends Controller
             return response()->json(['error' => 'У вас нет доступа к этому курсу'], 403);
         }
 
-        // Загружаем курс вместе с секциями, главами, текстами и фотографиями
         $course = Course::with(['sections.chapters.titles.texts.photos', 'sections.chapters.titles.files', 'sections.chapters.titles.links'])
             ->find($courseId);
 
@@ -505,6 +495,8 @@ class CourseController extends Controller
         $courseDetails = [
             'id' => $course->id,
             'name' => $course->name,
+            'price' => intval($course->price),
+            'payment_telegram_link' => $course->payment_telegram_link,
             'description' => $course->description,
             'cover_image' => $course->cover_image_url,
             'sections' => $course->sections->map(function ($section) {
@@ -536,8 +528,6 @@ class CourseController extends Controller
             }),
         ];
 
-        \Log::info('Successfully retrieved full course details:', ['course_details' => $courseDetails]);
-
         return response()->json($courseDetails, 200);
     }
 
@@ -550,7 +540,7 @@ class CourseController extends Controller
             'description' => 'required|string',
             'sections' => 'required|array|min:1',
             'sections.*.name' => 'required|string|max:255',
-            'sections.*.coverImage' => 'nullable|url',  // Обновляем валидацию
+            'sections.*.coverImage' => 'nullable|url',
             'sections.*.chapters' => 'required|array|min:1',
             'sections.*.chapters.*.title' => 'required|string|max:255',
             'sections.*.chapters.*.subChapters' => 'required|array|min:1',
@@ -560,7 +550,9 @@ class CourseController extends Controller
             'sections.*.chapters.*.subChapters.*.texts.*.images' => 'nullable|array',
             'sections.*.chapters.*.subChapters.*.texts.*.images.*' => 'nullable|url',
             'creator_id' => 'required|integer',
-            'cover_image_url' => 'nullable|url'
+            'cover_image_url' => 'nullable|url',
+            'price' => 'nullable|numeric',
+            'payment_telegram_link' => 'nullable|string|max:255'
         ]);
 
         \Log::info('Validated request data:', $validated);
@@ -583,10 +575,16 @@ class CourseController extends Controller
         try {
             $course = Course::findOrFail($courseId);
 
+            // Обработка значений price и payment_telegram_link
+            $price = isset($validated['price']) && is_numeric($validated['price']) ? number_format($validated['price'], 2, '.', '') : '0.00';
+            $paymentTelegramLink = $validated['payment_telegram_link'] ?? $course->payment_telegram_link;
+
             $course->update([
                 'name' => $validated['name'],
                 'description' => $validated['description'],
                 'cover_image_url' => $validated['cover_image_url'] ?? $course->cover_image_url,
+                'price' => $price,
+                'payment_telegram_link' => $paymentTelegramLink,
             ]);
 
             Section::where('course_id', $courseId)->delete();
@@ -595,7 +593,7 @@ class CourseController extends Controller
                 $section = Section::create([
                     'course_id' => $course->id,
                     'name' => $sectionData['name'],
-                    'photo_url' => $sectionData['coverImage'] ?? null,  // Заменяем coverImage на photo_url
+                    'photo_url' => $sectionData['coverImage'] ?? null,
                 ]);
 
                 foreach ($sectionData['chapters'] as $chapterData) {

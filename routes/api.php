@@ -18,7 +18,7 @@ Route::get('/user', function (Request $request) {
 
 
 // ** Courses
-Route::get('/courses', [HomeController::class, 'getCoursesForHome']);
+Route::get('/home', [HomeController::class, 'getCoursesForHome']);
 Route::get('/info-course/{id}', [HomeController::class, 'getCourseDetails']);
 Route::get('/courses/{courseId}', [CourseController::class, 'showCourseDetails']);
 Route::post('/free-course-access', [HomeController::class, 'freeCourseAccess']);
