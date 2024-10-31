@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CourseReview;
 use App\Models\Text;
 use App\Models\Title;
 use App\Models\TitleFile;
@@ -284,8 +285,10 @@ class CourseController extends Controller
             return response()->json(['error' => 'Пользователь не аутентифицирован'], 401);
         }
 
+        // Получаем user_id из запроса
         $userId = $request->query('user_id', $user->id);
 
+        // Проверяем, есть ли доступ к курсу
         $hasAccess = CourseAccess::where('course_id', $courseId)
             ->where('user_id', $userId)
             ->exists();
@@ -294,12 +297,24 @@ class CourseController extends Controller
             return response()->json(['error' => 'У вас нет доступа к этому курсу'], 403);
         }
 
+        // Находим курс с его разделами
         $course = Course::with('sections')->find($courseId);
 
         if (!$course) {
             return response()->json(['error' => 'Курс не найден'], 404);
         }
 
+        // Проверяем, является ли пользователь создателем курса
+        $isCreator = Course::where('id', $courseId)
+            ->where('creator_id', $userId) // Предполагается, что в таблице 'courses' есть поле 'creator_id'
+            ->exists();
+
+        // Получаем отзыв пользователя о курсе
+        $review = CourseReview::where('course_id', $courseId)
+            ->where('user_id', $userId)
+            ->first(['rating', 'review', 'update_count']);
+
+        // Формируем ответ
         $courseDetails = [
             'id' => $course->id,
             'name' => $course->name,
@@ -312,7 +327,17 @@ class CourseController extends Controller
                     'photo_url' => $section->photo_url,
                 ];
             }),
+            'user_review' => [
+                'rating' => $review->rating ?? null,
+                'review' => $review->review ?? null,
+                'update_count' => $review->update_count ?? 0,
+            ],
         ];
+
+        // Если пользователь является создателем курса, добавляем поле 'creator'
+        if ($isCreator) {
+            $courseDetails['creator'] = true;
+        }
 
         \Log::info('Successfully retrieved course details:', ['course_details' => $courseDetails]);
 

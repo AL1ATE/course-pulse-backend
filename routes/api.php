@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\CourseInfo;
+use App\Http\Controllers\CourseRatingsController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CourseController;
@@ -16,12 +18,14 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
+// ** Info Course for users
+Route::get('/info-course/{id}', [CourseInfo::class, 'getCourseDetails']);
+Route::get('/course-reviews/{courseId}', [CourseInfo::class, 'getReviewsByCourseId']);
+Route::post('/free-course-access', [CourseInfo::class, 'freeCourseAccess']);
 
 // ** Courses
-Route::get('/courses', [HomeController::class, 'getCoursesForHome']);
-Route::get('/info-course/{id}', [HomeController::class, 'getCourseDetails']);
+Route::get('/home', [HomeController::class, 'getCoursesForHome']);
 Route::get('/courses/{courseId}', [CourseController::class, 'showCourseDetails']);
-Route::post('/free-course-access', [HomeController::class, 'freeCourseAccess']);
 Route::put('/courses/{id}/update-status', [CourseController::class, 'updateStatus']);
 Route::get('/course/{courseId}/section/{sectionId}', [CourseController::class, 'showSectionChapters']);
 Route::get('/course/{courseId}/section/{sectionId}/chapter/{chapterId}', [CourseController::class, 'showChapterDetails']);
@@ -65,3 +69,6 @@ Route::prefix('requests')->group(function () {
 // ** Payment
 Route::get('/payment/initiate/{courseId}', [PaymentController::class, 'initiatePayment']);
 Route::post('/payment/callback', [PaymentController::class, 'paymentCallback']);
+
+// ** Ratings
+Route::post('/course-reviews', [CourseRatingsController::class, 'store']);
