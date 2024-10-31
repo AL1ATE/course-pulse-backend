@@ -15,7 +15,7 @@ class CourseRatingsController extends Controller
             'user_id' => 'required|integer',
             'course_id' => 'required|integer',
             'rating' => 'required|integer|min:1|max:5',
-            'review' => 'nullable|string|max:255',
+            'review' => 'nullable|string|max:500',
         ]);
 
         // Попробуем найти существующий отзыв
