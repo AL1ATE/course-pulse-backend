@@ -94,6 +94,8 @@ class CourseInfo extends Controller
         \Carbon\Carbon::setLocale('ru');
 
         $reviews = CourseReview::where('course_id', $courseId)
+            ->whereNotNull('review') // Условие для отбора отзывов с текстом
+            ->where('review', '!=', '') // Исключаем пустые строки
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($review) {
@@ -113,9 +115,6 @@ class CourseInfo extends Controller
                     'review' => $review->review,
                     'date' => $timeAgo,
                 ];
-            })
-            ->filter(function ($review) {
-                return $review['rating'] && ($review['review'] !== null && $review['review'] !== '');
             });
 
         return response()->json($reviews);
