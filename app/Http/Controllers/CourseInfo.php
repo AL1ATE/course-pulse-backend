@@ -54,7 +54,7 @@ class CourseInfo extends Controller
             $courseData['ratings_count'] = 0;
         }
 
-        return response()->json($courseData);
+        return response()->json($courseData, 200, [], JSON_UNESCAPED_UNICODE);
     }
 
     public function freeCourseAccess(Request $request)
@@ -117,6 +117,6 @@ class CourseInfo extends Controller
                 ];
             });
 
-        return response()->json($reviews);
+        return response()->json($reviews, 200, [], JSON_UNESCAPED_UNICODE);
     }
 }

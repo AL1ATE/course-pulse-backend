@@ -29,6 +29,6 @@ class HomeController extends Controller
                 ];
             });
 
-        return response()->json($courses);
+        return response()->json($courses, 200, [], JSON_UNESCAPED_UNICODE);
     }
 }
