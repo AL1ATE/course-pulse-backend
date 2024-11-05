@@ -200,7 +200,7 @@ class CourseController extends Controller
                 ];
             });
 
-        return response()->json($courses);
+        return response()->json($courses, 200, [], JSON_UNESCAPED_UNICODE);
     }
 
     public function getPurchasedCoursesByUserId($userId): JsonResponse
@@ -242,7 +242,7 @@ class CourseController extends Controller
                 ];
             });
 
-        return response()->json($courses);
+        return response()->json($courses, 200, [], JSON_UNESCAPED_UNICODE);
     }
 
 
@@ -353,7 +353,7 @@ class CourseController extends Controller
 
         \Log::info('Successfully retrieved course details:', ['course_details' => $courseDetails]);
 
-        return response()->json($courseDetails, 200);
+        return response()->json($courseDetails, 200, [], JSON_UNESCAPED_UNICODE);
     }
 
     public function showSectionChapters(Request $request, $courseId, $sectionId): JsonResponse
@@ -402,7 +402,7 @@ class CourseController extends Controller
 
         \Log::info('Successfully retrieved section chapters:', ['section_details' => $sectionDetails]);
 
-        return response()->json($sectionDetails, 200);
+        return response()->json($sectionDetails, 200, [], JSON_UNESCAPED_UNICODE);
     }
 
     public function showChapterDetails(Request $request, $courseId, $sectionId, $chapterId): JsonResponse
@@ -491,7 +491,7 @@ class CourseController extends Controller
 
         \Log::info('Successfully retrieved chapter details:', ['chapter_details' => $chapterDetails]);
 
-        return response()->json($chapterDetails, 200);
+        return response()->json($chapterDetails, 200, [], JSON_UNESCAPED_UNICODE);
     }
 
     public function showFullCourseDetails(Request $request, $courseId): JsonResponse

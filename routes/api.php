@@ -36,7 +36,6 @@ Route::post('course-access/add', [CourseController::class, 'addAccess']);
 Route::get('/admin/get-course-review', [CourseController::class, 'getCoursesForReview']);
 Route::get('/courses/creator/{creatorId}', [CourseController::class, 'getCourseByCreatorId']);
 Route::get('/purchased-courses/{userId}', [CourseController::class, 'getPurchasedCoursesByUserId']);
-Route::get('/purchased-courses/{userId}', [CourseController::class, 'getPurchasedCoursesByUserId']);
 Route::get('/admin/courses', [CourseController::class, 'getAllCoursesForAdmin']);
 Route::delete('/delete-course/{id}', [CourseController::class, 'destroyCourse']);
 
