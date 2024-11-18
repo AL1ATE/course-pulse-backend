@@ -38,4 +38,9 @@ class Text extends Model
     {
         return $this->hasMany(TitlePhoto::class, 'title_text_id'); // Корректируем поле связи
     }
+
+    public function video()
+    {
+        return $this->hasOne(TitleVideo::class, 'title_text_id');
+    }
 }

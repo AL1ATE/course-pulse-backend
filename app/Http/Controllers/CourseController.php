@@ -8,6 +8,7 @@ use App\Models\Title;
 use App\Models\TitleFile;
 use App\Models\TitleLink;
 use App\Models\TitlePhoto;
+use App\Models\TitleVideo;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Models\Course;
@@ -42,14 +43,15 @@ class CourseController extends Controller
             'sections.*.chapters.*.subChapters.*.texts.*.content' => 'required|string',
             'sections.*.chapters.*.subChapters.*.texts.*.images' => 'nullable|array',
             'sections.*.chapters.*.subChapters.*.texts.*.images.*' => 'nullable|url',
+            'sections.*.chapters.*.subChapters.*.texts.*.video' => 'nullable|url',
             'sections.*.chapters.*.subChapters.*.texts.*.files' => 'nullable|array',
             'sections.*.chapters.*.subChapters.*.texts.*.files.*.name' => 'nullable|string|max:255',
             'sections.*.chapters.*.subChapters.*.texts.*.files.*.url' => 'nullable|url',
             'sections.*.chapters.*.subChapters.*.texts.*.links' => 'nullable|array',
             'sections.*.chapters.*.subChapters.*.texts.*.links.*' => 'nullable|url',
             'creator_id' => 'required|integer',
-            'price' => 'nullable|numeric', // Добавлена валидация для price
-            'payment_telegram_link' => 'nullable|string|max:255' // Добавлена валидация для payment_telegram_link
+            'price' => 'nullable|numeric',
+            'payment_telegram_link' => 'nullable|string|max:255'
         ]);
 
         \Log::info('Validated request data:', $validated);
@@ -64,12 +66,11 @@ class CourseController extends Controller
         DB::beginTransaction();
 
         try {
-            // Обработка price
             $price = $validated['price'];
             if (is_numeric($price)) {
                 $price = number_format($price, 2, '.', '');
             } else {
-                $price = '0.00'; // Для пустого значения или null
+                $price = '0.00';
             }
 
             $course = Course::create([
@@ -78,8 +79,8 @@ class CourseController extends Controller
                 'cover_image_url' => $validated['cover_image_url'] ?? null,
                 'creator_id' => $userId,
                 'status' => 2,
-                'price' => $price, // Записываем обработанное значение price
-                'payment_telegram_link' => $validated['payment_telegram_link'] ?? null, // Записываем payment_telegram_link
+                'price' => $price,
+                'payment_telegram_link' => $validated['payment_telegram_link'] ?? null,
             ]);
 
             foreach ($validated['sections'] as $sectionData) {
@@ -108,15 +109,23 @@ class CourseController extends Controller
                                     'content' => $textData['content'],
                                 ]);
 
+                                // Сохраняем изображения
                                 if (isset($textData['images'])) {
                                     foreach ($textData['images'] as $imageUrl) {
                                         if ($imageUrl) {
                                             TitlePhoto::create([
-                                                'title_text_id' => $text->id, // Используем правильное поле title_text_id
+                                                'title_text_id' => $text->id,
                                                 'photo_url' => $imageUrl,
                                             ]);
                                         }
                                     }
+                                }
+
+                                if (isset($textData['video']) && $textData['video']) {
+                                    TitleVideo::create([
+                                        'title_text_id' => $text->id,
+                                        'video_url' => $textData['video'],
+                                    ]);
                                 }
 
                                 if (isset($textData['files'])) {
@@ -147,22 +156,12 @@ class CourseController extends Controller
                 }
             }
 
-            if (isset($validated['testSections'])) {
-                foreach ($validated['testSections'] as $testSectionData) {
-                    TestSection::create([
-                        'course_id' => $course->id,
-                        'name' => $testSectionData['name'],
-                    ]);
-                }
-            }
-
             CourseAccess::create([
                 'course_id' => $course->id,
                 'user_id' => $userId,
             ]);
 
             DB::commit();
-
             return response()->json(['message' => 'Курс успешно создан!'], 201);
 
         } catch (\Exception $e) {
@@ -171,7 +170,6 @@ class CourseController extends Controller
             return response()->json(['error' => 'Произошла ошибка: ' . $e->getMessage()], 500);
         }
     }
-
 
     public function getCourseByCreatorId($creatorId): JsonResponse
     {
@@ -435,9 +433,11 @@ class CourseController extends Controller
             ->with(['chapters' => function ($query) use ($chapterId) {
                 $query->where('id', $chapterId)
                     ->with(['titles' => function ($query) {
-                        // Включаем тексты и фотографии, связанные с ними
+                        // Включаем тексты, фотографии и видео, связанные с ними
                         $query->with(['texts' => function ($textQuery) {
-                            $textQuery->with(['photos']);
+                            $textQuery->with(['photos', 'video' => function ($videoQuery) {
+                                $videoQuery->select('id', 'video_url', 'title_text_id');
+                            }]);
                         }, 'files', 'links']);
                     }]);
             }])
@@ -470,6 +470,10 @@ class CourseController extends Controller
                                     'photo_url' => $photo->photo_url,
                                 ];
                             }),
+                            'video' => $text->video ? [
+                                'id' => $text->video->id,
+                                'video_url' => $text->video->video_url,
+                            ] : null,
                         ];
                     }),
                     'files' => $title->files->map(function ($file) {
@@ -493,6 +497,7 @@ class CourseController extends Controller
 
         return response()->json($chapterDetails, 200, [], JSON_UNESCAPED_UNICODE);
     }
+
 
     public function showFullCourseDetails(Request $request, $courseId): JsonResponse
     {
