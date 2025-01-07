@@ -470,10 +470,12 @@ class CourseController extends Controller
                                     'photo_url' => $photo->photo_url,
                                 ];
                             }),
-                            'video' => $text->video ? [
-                                'id' => $text->video->id,
-                                'video_url' => $text->video->video_url,
-                            ] : null,
+                            'video' => $text->video->map(function ($video) {
+                                return [
+                                    'id' => $video->id,
+                                    'video_url' => $video->video_url,
+                                ];
+                            }),
                         ];
                     }),
                     'files' => $title->files->map(function ($file) {
