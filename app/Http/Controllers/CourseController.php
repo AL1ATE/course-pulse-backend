@@ -527,7 +527,7 @@ class CourseController extends Controller
             return response()->json(['error' => 'У вас нет доступа к этому курсу'], 403);
         }
 
-        $course = Course::with(['sections.chapters.titles.texts.photos', 'sections.chapters.titles.files', 'sections.chapters.titles.links'])
+        $course = Course::with(['sections.chapters.titles.texts.photos', 'sections.chapters.titles.texts.video', 'sections.chapters.titles.files', 'sections.chapters.titles.links'])
             ->find($courseId);
 
         if (!$course) {
@@ -560,6 +560,9 @@ class CourseController extends Controller
                                             'images' => $text->photos->map(function ($photo) {
                                                 return $photo->photo_url;
                                             })->toArray(),
+                                            'video' => $text->video->isEmpty() ? null : $text->video->map(function ($photo) {
+                                                return $photo->video_url;
+                                            })->toArray(),
                                         ];
                                     }),
                                 ];
@@ -591,6 +594,7 @@ class CourseController extends Controller
             'sections.*.chapters.*.subChapters.*.texts.*.content' => 'required|string',
             'sections.*.chapters.*.subChapters.*.texts.*.images' => 'nullable|array',
             'sections.*.chapters.*.subChapters.*.texts.*.images.*' => 'nullable|url',
+            'sections.*.chapters.*.subChapters.*.texts.*.video' => 'nullable|url',
             'creator_id' => 'required|integer',
             'cover_image_url' => 'nullable|url',
             'price' => 'nullable|numeric',
@@ -665,6 +669,12 @@ class CourseController extends Controller
                                         ]);
                                     }
                                 }
+                            }
+                            if (isset($textData['video']) && $textData['video']) {
+                                TitleVideo::create([
+                                    'title_text_id' => $text->id,
+                                    'video_url' => $textData['video'],
+                                ]);
                             }
                         }
                     }

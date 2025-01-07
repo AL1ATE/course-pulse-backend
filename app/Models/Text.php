@@ -41,6 +41,6 @@ class Text extends Model
 
     public function video()
     {
-        return $this->hasOne(TitleVideo::class, 'title_text_id');
+        return $this->hasMany(TitleVideo::class, 'title_text_id');
     }
 }
