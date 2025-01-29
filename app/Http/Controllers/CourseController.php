@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCourseRequest;
+use App\Http\Requests\UpdateCourseRequest;
 use App\Models\CourseReview;
 use App\Models\Text;
 use App\Models\Title;
-use App\Models\TitleFile;
-use App\Models\TitleLink;
 use App\Models\TitlePhoto;
 use App\Models\TitleVideo;
 use App\Models\User;
+use App\Services\CourseService;
 use Illuminate\Http\Request;
 use App\Models\Course;
 use App\Models\Section;
@@ -24,154 +25,39 @@ use Illuminate\Http\JsonResponse;
 
 class CourseController extends Controller
 {
-    public function store(Request $request)
+    protected $courseService;
+
+    public function __construct(CourseService $courseService)
     {
-        \Log::info('Received request data:', $request->all());
+        $this->courseService = $courseService;
+    }
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'required|string',
-            'cover_image_url' => 'nullable|url',
-            'sections' => 'required|array|min:1',
-            'sections.*.name' => 'required|string|max:255',
-            'sections.*.photo_url' => 'nullable|url',
-            'sections.*.chapters' => 'required|array|min:1',
-            'sections.*.chapters.*.title' => 'required|string|max:255',
-            'sections.*.chapters.*.subChapters' => 'required|array|min:1',
-            'sections.*.chapters.*.subChapters.*.title' => 'required|string|max:255',
-            'sections.*.chapters.*.subChapters.*.texts' => 'required|array|min:1',
-            'sections.*.chapters.*.subChapters.*.texts.*.content' => 'required|string',
-            'sections.*.chapters.*.subChapters.*.texts.*.images' => 'nullable|array',
-            'sections.*.chapters.*.subChapters.*.texts.*.images.*' => 'nullable|url',
-            'sections.*.chapters.*.subChapters.*.texts.*.video' => 'nullable|url',
-            'sections.*.chapters.*.subChapters.*.texts.*.files' => 'nullable|array',
-            'sections.*.chapters.*.subChapters.*.texts.*.files.*.name' => 'nullable|string|max:255',
-            'sections.*.chapters.*.subChapters.*.texts.*.files.*.url' => 'nullable|url',
-            'sections.*.chapters.*.subChapters.*.texts.*.links' => 'nullable|array',
-            'sections.*.chapters.*.subChapters.*.texts.*.links.*' => 'nullable|url',
-            'creator_id' => 'required|integer',
-            'price' => 'nullable|numeric',
-            'payment_telegram_link' => 'nullable|string|max:255'
-        ]);
+    /**
+     * Создать новый курс.
+     *
+     * @param StoreCourseRequest $request
+     * @return JsonResponse
+     */
+    public function store(StoreCourseRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
 
-        \Log::info('Validated request data:', $validated);
-
-        $userId = $validated['creator_id'];
-        $currentUserId = Auth::id();
-
-        if ($userId !== $currentUserId) {
+        if ($validated['creator_id'] !== Auth::id()) {
             return response()->json(['error' => 'Нет прав для создания курса'], 403);
         }
 
-        DB::beginTransaction();
+        $course = $this->courseService->createCourse($validated);
 
-        try {
-            $price = $validated['price'];
-            if (is_numeric($price)) {
-                $price = number_format($price, 2, '.', '');
-            } else {
-                $price = '0.00';
-            }
-
-            $course = Course::create([
-                'name' => $validated['name'],
-                'description' => $validated['description'],
-                'cover_image_url' => $validated['cover_image_url'] ?? null,
-                'creator_id' => $userId,
-                'status' => 2,
-                'price' => $price,
-                'payment_telegram_link' => $validated['payment_telegram_link'] ?? null,
-            ]);
-
-            foreach ($validated['sections'] as $sectionData) {
-                $section = Section::create([
-                    'course_id' => $course->id,
-                    'name' => $sectionData['name'],
-                    'photo_url' => $sectionData['photo_url'] ?? null,
-                ]);
-
-                foreach ($sectionData['chapters'] as $chapterData) {
-                    $chapter = Chapter::create([
-                        'section_id' => $section->id,
-                        'name' => $chapterData['title'],
-                    ]);
-
-                    foreach ($chapterData['subChapters'] as $subChapterData) {
-                        $subChapter = Title::create([
-                            'chapter_id' => $chapter->id,
-                            'subtitle' => $subChapterData['title'],
-                        ]);
-
-                        if (isset($subChapterData['texts'])) {
-                            foreach ($subChapterData['texts'] as $textData) {
-                                $text = Text::create([
-                                    'title_id' => $subChapter->id,
-                                    'content' => $textData['content'],
-                                ]);
-
-                                // Сохраняем изображения
-                                if (isset($textData['images'])) {
-                                    foreach ($textData['images'] as $imageUrl) {
-                                        if ($imageUrl) {
-                                            TitlePhoto::create([
-                                                'title_text_id' => $text->id,
-                                                'photo_url' => $imageUrl,
-                                            ]);
-                                        }
-                                    }
-                                }
-
-                                if (isset($textData['video']) && $textData['video']) {
-                                    TitleVideo::create([
-                                        'title_text_id' => $text->id,
-                                        'video_url' => $textData['video'],
-                                    ]);
-                                }
-
-                                if (isset($textData['files'])) {
-                                    foreach ($textData['files'] as $file) {
-                                        if (isset($file['name']) && isset($file['url'])) {
-                                            TitleFile::create([
-                                                'text_id' => $text->id,
-                                                'file_name' => $file['name'],
-                                                'file_url' => $file['url'],
-                                            ]);
-                                        }
-                                    }
-                                }
-
-                                if (isset($textData['links'])) {
-                                    foreach ($textData['links'] as $linkUrl) {
-                                        if ($linkUrl) {
-                                            TitleLink::create([
-                                                'text_id' => $text->id,
-                                                'link_url' => $linkUrl,
-                                            ]);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            CourseAccess::create([
-                'course_id' => $course->id,
-                'user_id' => $userId,
-            ]);
-
-            DB::commit();
-            return response()->json(['message' => 'Курс успешно создан!'], 201);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Error creating course:', ['error' => $e->getMessage()]);
-            return response()->json(['error' => 'Произошла ошибка: ' . $e->getMessage()], 500);
-        }
+        return response()->json(['message' => 'Курс успешно создан!', 'course' => $course], 201);
     }
 
-    public function getCourseByCreatorId($creatorId): JsonResponse
+    /**
+     * Получить список курсов, созданных пользователем.
+     *
+     * @param int $creatorId
+     * @return JsonResponse
+     */
+    public function getCourseByCreatorId(int $creatorId): JsonResponse
     {
         try {
             $user = JWTAuth::parseToken()->authenticate();
@@ -201,7 +87,13 @@ class CourseController extends Controller
         return response()->json($courses, 200, [], JSON_UNESCAPED_UNICODE);
     }
 
-    public function getPurchasedCoursesByUserId($userId): JsonResponse
+    /**
+     * Получить список курсов, приобретенных пользователем.
+     *
+     * @param int $userId
+     * @return JsonResponse
+     */
+    public function getPurchasedCoursesByUserId(int $userId): JsonResponse
     {
         try {
             $currentUser = JWTAuth::parseToken()->authenticate();
@@ -244,7 +136,7 @@ class CourseController extends Controller
     }
 
 
-    public function addAccess(Request $request)
+    public function addAccess(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'course_id' => 'required|integer',
@@ -282,23 +174,16 @@ class CourseController extends Controller
         return response()->json(['message' => 'true'], 201);
     }
 
-    public function showCourseDetails(Request $request, $courseId): JsonResponse
+    public function showCourseDetails(Request $request, int $courseId): JsonResponse
     {
-        \Log::info('Received request to show course details:', [
-            'course_id' => $courseId,
-            'user_id' => $request->query('user_id')
-        ]);
-
         try {
             $user = JWTAuth::parseToken()->authenticate();
         } catch (\Tymon\JWTAuth\Exceptions\JWTException $e) {
             return response()->json(['error' => 'Пользователь не аутентифицирован'], 401);
         }
 
-        // Получаем user_id из запроса
         $userId = $request->query('user_id', $user->id);
 
-        // Проверяем, есть ли доступ к курсу
         $hasAccess = CourseAccess::where('course_id', $courseId)
             ->where('user_id', $userId)
             ->exists();
@@ -307,24 +192,20 @@ class CourseController extends Controller
             return response()->json(['error' => 'У вас нет доступа к этому курсу'], 403);
         }
 
-        // Находим курс с его разделами
         $course = Course::with('sections')->find($courseId);
 
         if (!$course) {
             return response()->json(['error' => 'Курс не найден'], 404);
         }
 
-        // Проверяем, является ли пользователь создателем курса
         $isCreator = Course::where('id', $courseId)
-            ->where('creator_id', $userId) // Предполагается, что в таблице 'courses' есть поле 'creator_id'
+            ->where('creator_id', $userId)
             ->exists();
 
-        // Получаем отзыв пользователя о курсе
         $review = CourseReview::where('course_id', $courseId)
             ->where('user_id', $userId)
             ->first(['rating', 'review', 'update_count']);
 
-        // Формируем ответ
         $courseDetails = [
             'id' => $course->id,
             'name' => $course->name,
@@ -344,24 +225,15 @@ class CourseController extends Controller
             ],
         ];
 
-        // Если пользователь является создателем курса, добавляем поле 'creator'
         if ($isCreator) {
             $courseDetails['creator'] = true;
         }
-
-        \Log::info('Successfully retrieved course details:', ['course_details' => $courseDetails]);
 
         return response()->json($courseDetails, 200, [], JSON_UNESCAPED_UNICODE);
     }
 
     public function showSectionChapters(Request $request, $courseId, $sectionId): JsonResponse
     {
-        \Log::info('Received request to show section chapters:', [
-            'course_id' => $courseId,
-            'section_id' => $sectionId,
-            'user_id' => $request->query('user_id')
-        ]);
-
         try {
             $user = JWTAuth::parseToken()->authenticate();
         } catch (\Tymon\JWTAuth\Exceptions\JWTException $e) {
@@ -398,7 +270,6 @@ class CourseController extends Controller
             }),
         ];
 
-        \Log::info('Successfully retrieved section chapters:', ['section_details' => $sectionDetails]);
 
         return response()->json($sectionDetails, 200, [], JSON_UNESCAPED_UNICODE);
     }
@@ -433,7 +304,6 @@ class CourseController extends Controller
             ->with(['chapters' => function ($query) use ($chapterId) {
                 $query->where('id', $chapterId)
                     ->with(['titles' => function ($query) {
-                        // Включаем тексты, фотографии и видео, связанные с ними
                         $query->with(['texts' => function ($textQuery) {
                             $textQuery->with(['photos', 'video' => function ($videoQuery) {
                                 $videoQuery->select('id', 'video_url', 'title_text_id');
@@ -578,133 +448,32 @@ class CourseController extends Controller
         return response()->json($courseDetails, 200);
     }
 
-    public function update(Request $request, $courseId): JsonResponse
+    /**
+     * Обновить курс.
+     *
+     * @param UpdateCourseRequest $request
+     * @param int $courseId
+     * @return JsonResponse
+     */
+    public function update(UpdateCourseRequest $request, int $courseId): JsonResponse
     {
-        \Log::info('Received request data:', $request->all());
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'required|string',
-            'sections' => 'required|array|min:1',
-            'sections.*.name' => 'required|string|max:255',
-            'sections.*.coverImage' => 'nullable|url',
-            'sections.*.chapters' => 'required|array|min:1',
-            'sections.*.chapters.*.title' => 'required|string|max:255',
-            'sections.*.chapters.*.subChapters' => 'required|array|min:1',
-            'sections.*.chapters.*.subChapters.*.title' => 'required|string|max:255',
-            'sections.*.chapters.*.subChapters.*.texts' => 'required|array|min:1',
-            'sections.*.chapters.*.subChapters.*.texts.*.content' => 'required|string',
-            'sections.*.chapters.*.subChapters.*.texts.*.images' => 'nullable|array',
-            'sections.*.chapters.*.subChapters.*.texts.*.images.*' => 'nullable|url',
-            'sections.*.chapters.*.subChapters.*.texts.*.video' => 'nullable|url',
-            'creator_id' => 'required|integer',
-            'cover_image_url' => 'nullable|url',
-            'price' => 'nullable|numeric',
-            'payment_telegram_link' => 'nullable|string|max:255'
-        ]);
-
-        \Log::info('Validated request data:', $validated);
-
         try {
             $user = JWTAuth::parseToken()->authenticate();
         } catch (\Tymon\JWTAuth\Exceptions\JWTException $e) {
             return response()->json(['error' => 'Пользователь не аутентифицирован'], 401);
         }
 
-        $userId = $validated['creator_id'];
-        $currentUserId = $user->id;
-
-        if ($userId !== $currentUserId) {
+        if ($request->creator_id !== $user->id) {
             return response()->json(['error' => 'Нет прав для обновления курса'], 403);
         }
 
-        DB::beginTransaction();
+        $updated = $this->courseService->updateCourse($request->validated(), $courseId);
 
-        try {
-            $course = Course::findOrFail($courseId);
-
-            // Обработка значений price и payment_telegram_link
-            $price = isset($validated['price']) && is_numeric($validated['price']) ? number_format($validated['price'], 2, '.', '') : '0.00';
-            $paymentTelegramLink = $validated['payment_telegram_link'] ?? $course->payment_telegram_link;
-
-            $course->update([
-                'name' => $validated['name'],
-                'description' => $validated['description'],
-                'cover_image_url' => $validated['cover_image_url'] ?? $course->cover_image_url,
-                'price' => $price,
-                'payment_telegram_link' => $paymentTelegramLink,
-            ]);
-
-            Section::where('course_id', $courseId)->delete();
-
-            foreach ($validated['sections'] as $sectionData) {
-                $section = Section::create([
-                    'course_id' => $course->id,
-                    'name' => $sectionData['name'],
-                    'photo_url' => $sectionData['coverImage'] ?? null,
-                ]);
-
-                foreach ($sectionData['chapters'] as $chapterData) {
-                    $chapter = Chapter::create([
-                        'section_id' => $section->id,
-                        'name' => $chapterData['title'],
-                    ]);
-
-                    foreach ($chapterData['subChapters'] as $subChapterData) {
-                        $subChapter = Title::create([
-                            'chapter_id' => $chapter->id,
-                            'subtitle' => $subChapterData['title'],
-                        ]);
-
-                        foreach ($subChapterData['texts'] as $textData) {
-                            $text = Text::create([
-                                'title_id' => $subChapter->id,
-                                'content' => $textData['content'],
-                            ]);
-
-                            if ($text->id && isset($textData['images'])) {
-                                foreach ($textData['images'] as $imageUrl) {
-                                    if ($imageUrl) {
-                                        TitlePhoto::create([
-                                            'title_text_id' => $text->id,
-                                            'photo_url' => $imageUrl,
-                                        ]);
-                                    }
-                                }
-                            }
-                            if (isset($textData['video']) && $textData['video']) {
-                                TitleVideo::create([
-                                    'title_text_id' => $text->id,
-                                    'video_url' => $textData['video'],
-                                ]);
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (isset($validated['testSections'])) {
-                TestSection::where('course_id', $course->id)->delete();
-                foreach ($validated['testSections'] as $testSectionData) {
-                    TestSection::create([
-                        'course_id' => $course->id,
-                        'name' => $testSectionData['name'],
-                    ]);
-                }
-            }
-
-            $course->status = 2;
-            $course->save();
-
-            DB::commit();
-
-            return response()->json(['message' => 'Курс успешно обновлён!'], 200);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Error updating course:', ['error' => $e->getMessage()]);
-            return response()->json(['error' => 'Произошла ошибка: ' . $e->getMessage()], 500);
+        if (!$updated) {
+            return response()->json(['error' => 'Ошибка обновления курса'], 500);
         }
+
+        return response()->json(['message' => 'Курс успешно обновлён!'], 200);
     }
 
 
