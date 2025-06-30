@@ -5,27 +5,20 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreCourseRequest;
 use App\Http\Requests\UpdateCourseRequest;
 use App\Models\CourseReview;
-use App\Models\Text;
-use App\Models\Title;
-use App\Models\TitlePhoto;
-use App\Models\TitleVideo;
 use App\Models\User;
 use App\Services\CourseService;
 use Illuminate\Http\Request;
 use App\Models\Course;
 use App\Models\Section;
-use App\Models\Chapter;
-use App\Models\TestSection;
 use App\Models\CourseAccess;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Illuminate\Http\JsonResponse;
 
 class CourseController extends Controller
 {
-    protected $courseService;
+    protected CourseService $courseService;
 
     public function __construct(CourseService $courseService)
     {
